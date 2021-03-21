@@ -1,10 +1,6 @@
 # 强化学习1-基础概念
 
----
-title: 强化学习1-基础概念
-tags:  强化学习,reinforcement learning
-grammar_cjkRuby: true
----
+
 
 > 该系列笔记基于 Wang Shusen老师的强化学习课程,课程内容深入浅出，建议有需要的同学学习
 > - 课程视频原链接为https://www.youtube.com/playlist?list=PLvOO0btloRnsiqM72G4Uid0UWljikENlU （或知乎https://www.zhihu.com/zvideo/1356919090918076416）
@@ -12,7 +8,7 @@ grammar_cjkRuby: true
 
 本节主要介绍常见而且**常忘记**的强化学习术语和概念。
 
-# State action policy reward trajectory
+## State action policy reward trajectory
 
 下图展示了马里奥的游戏的某一时刻的截图，通过这个截图我们来学校以下几个术语定义：
 - **state**：这个就表示$t$时刻马里奥的状态，用$s_t$表示。状态的定义方式也是可以由我们自己定义，比如可以是马里奥所在的位置，前后是否有怪兽等
@@ -31,7 +27,7 @@ grammar_cjkRuby: true
 
 
 
-# Reward和Return
+## Reward和Return
 
 
 - Reward表示每个时刻采取动作后得到的是即时奖励
@@ -41,11 +37,11 @@ grammar_cjkRuby: true
 
 上面给的$U_t$计算公式是从$t$时刻开始未来每个时刻的奖励的累加，可以看到所有时刻的reward都是相同权重的。但是这样设计有一个问题，就是假如我现在给你100 和 1年后才给你100，这两个100显然不应该赋予相同权重，所以你经常可以看到return计算时会有一个参数$\gamma$,得到的是**discounted return**，即$U_t=R_t+\gamma R_{t+1}+\gamma ^2R_{t+2}...$
 
-# 价值函数
+## 价值函数
 
 价值函数分为两种，一种是动作价值函数，另一种是状态价值函数。
 
-## 动作价值函数 Q(s,a)
+### 动作价值函数 Q(s,a)
 
 
 前面说过了$U_t$只是一个随机变量，另外$R_t$由$(S_t,A_t)$决定，所以$U_t$依赖于从$t$时刻开始所有时间的动作($A_t,A_{t+1},A_{t+2},..$)和状态($S_t,S_{t+1},S_{t+2},...$)决定。
@@ -64,7 +60,7 @@ $$
 Q^{\star}\left(s_{t}, a_{t}\right)=\max _{\pi} Q_{\pi}\left(s_{t}, a_{t}\right)
 $$
 
-## 状态价值函数 V(s)
+### 状态价值函数 V(s)
 
 前面介绍的$Q(s_t,a_t)$是在$s_t$时刻，**某一个**动作$a_t$的价值，那如果我们计算所有动作的价值的期望呢？即
 
@@ -86,7 +82,7 @@ $$
 直观地理解的话我们看上一张图片，此状态下马里奥可以选择向上和向左移动，假设价值是10；
 而如果下一时刻调到了两个怪兽中间，因为这个时候除了向上移动，左右都不是太好，因为很可能会碰到怪兽，所以此时的价值可能只有3。（此处的价值大小只是举个例子帮助理解）。
 
-# 小结
+## 小结
 
 价值函数小结：
 
