@@ -1,4 +1,4 @@
-Hello and welcome to this blog.
+
 
 
 <h1 align="center">Hi 👋, I'm marsggbo</h1>
@@ -39,41 +39,4 @@ Hello and welcome to this blog.
 My current research direction is **automated machine learning (AutoML)**. If you are interested in AutoML and looking for cooperation, please feel free to contact me.
 Any internship opportunities related to AutoML would be greatly appreciated.
 
-### Publication
 
-<pre>
-@article{He2021CovidNet3D, 
-  title={Automated Model Design and Benchmarking of 3D Deep Learning Models for COVID-19 Detection with Chest CT Scans}, 
-  journal={Proceedings of the AAAI Conference on Artificial Intelligence}, 
-  author={<b>He, Xin</b> and Wang, Shihao and Chu, Xiaowen and Shi, Shaohuai and Tang, Jiangping and Liu, Xin and Yan, Chenggang and Zhang, Jiyong and Ding, Guiguang}, 
-  year={2021}
-}
-@article{He2020AutoML_Survey,
-  title = "AutoML: A survey of the state-of-the-art",
-  journal = "Knowledge-Based Systems",
-  pages = "106622",
-  year = "2020",
-  issn = "0950-7051",
-  doi = "https://doi.org/10.1016/j.knosys.2020.106622",
-  url = "http://www.sciencedirect.com/science/article/pii/S0950705120307516",
-  author = "<b>Xin He</b> and Kaiyong Zhao and Xiaowen Chu",
-}
-@article{He2020BenchmarkingDL,
-  title={Benchmarking Deep Learning Models and Automated Model Design for COVID-19 Detection with Chest CT Scans},
-  author={<b>Xin He</b> and S. Wang and S. Shi and X. Chu and J. Tang and X. Liu and C. Yan and J. Zhang and G. Ding},
-  journal={medRxiv},
-  year={2020}
-}
-@article{He2019ComputerAidedCS,
-  title={Computer-Aided Clinical Skin Disease Diagnosis Using CNN and Object Detection Models},
-  author={<b>Xin He</b> and X. He and Shihao Wang and Shaohuai Shi and Z. Tang and Yuxin Wang and Zhihao Zhao and J. Dai and Ronghao Ni and Xiangli Zhang and X. Liu and Z. Wu and W. Yu and Xiaowen Chu},
-  journal={2019 IEEE International Conference on Big Data (Big Data)},
-  year={2019},
-  pages={4839-4844}
-}
-</pre>
-
-
-<p align="center"> 
-  <img src="https://github-readme-stats.vercel.app/api?username=marsggbo&show_icons=true" alt="marsggbo" /> 
-</p>
