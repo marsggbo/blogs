@@ -2,7 +2,9 @@
 
 ## 1. Policy function
 
-策略函数 $\pi(a|s)$是一个概率密度函数(probability density function, PDF)，状态$s$作为输入，输出是不同动作的概率。比如前面文章里的马里奥游戏中，一共有三个可选动作，left,right,up，这三个动作的概率之和为1，即 $\sum_{a\in A}\pi(a|s), A=\{left,right,up\}$。
+策略函数 $\pi(a|s)$ 是一个概率密度函数(probability density function, PDF)，状态$s$作为输入，输出是不同动作的概率。
+
+比如前面文章里的马里奥游戏中，一共有三个可选动作，left,right,up，这三个动作的概率之和为1，即 $\sum_{a\in A}\pi(a|s), A=\{left,right,up\}$。
 
 ![Policy Network](https://raw.githubusercontent.com/marsggbo/PicBed/master/marsggbo/2021_3_23_1616471125134.png)
 
@@ -14,7 +16,9 @@
 ![State-Value function](https://raw.githubusercontent.com/marsggbo/PicBed/master/marsggbo/2021_3_23_1616471179140.png)
 
 
-在介绍Policy Network之前，我们先回顾一下状态价值函数的定义，如上图示。可以知道状态价值函数只与状态$s_t$有关，因为它是所有动作价值的的加权求和，权重就是每个动作的概率$\pi(a|s_t)$。
+在介绍Policy Network之前，我们先回顾一下状态价值函数的定义，如上图示。
+
+可以知道状态价值函数只与状态$s_t$有关，因为它是所有动作价值的的加权求和，权重就是每个动作的概率$\pi(a|s_t)$。
 
 
 $$
@@ -23,7 +27,9 @@ $$
 
 ### 2.2 Policy Gradient
 
-但是每个动作的概率我们通常是不知道的，所以我们可以用policy network$\pi(a|s_t;\theta)$去预测每个动作的概率。那我们该如何更新这个网络呢？
+但是每个动作的概率我们通常是不知道的，所以我们可以用policy network $\pi(a|s_t;\theta)$ 去预测每个动作的概率。
+
+那我们该如何更新这个网络呢？
 
 很显然我们知道最终的目的是想要最大化所有状态的价值，即最大化$J(\theta)$
 
@@ -60,8 +66,8 @@ $$
 公式（1）推导解释：
 - 第一行到第二行就是把偏微分移到了求和符号内
 - 第三行：因为我们假设了$Q_{\pi}$与网络权重$\theta$无关，所以$Q_{\pi}$可以单独提出来
-- 第四行：我们把$\pi(a|s;\theta)$看成几个整体，记为$z$，另外需要用到这个推导技巧，即$z\cdot  \frac{\partial{log z}}{\partial{x}}=z \cdot \frac{1}{z} \frac{\partial{z}}{\partial{x}}=\frac{\partial{z}}{\partial{x}}$
-- 第五行：因为$\pi(a|s;\theta)$是动作的概率分布，简单理解就是每个动作的概率，那么第四行就等价于求期望
+- 第四行：我们把 $\pi(a|s;\theta)$ 看成几个整体，记为$z$，另外需要用到这个推导技巧，即 $z\cdot  \frac{\partial{log z}}{\partial{x}}=z \cdot \frac{1}{z} \frac{\partial{z}}{\partial{x}}=\frac{\partial{z}}{\partial{x}}$
+- 第五行：因为 $\pi(a|s;\theta)$ 是动作的概率分布，简单理解就是每个动作的概率，那么第四行就等价于求期望
 
 
 总结起来，policy gradient的计算有两种形式，如下：
@@ -90,8 +96,8 @@ $$
 更新policy network的完整步骤如上图所示：
 
 1. 首先我们观察得到某一时刻的状态$s_t$
-2. 根据policy network $\pi(\cdot|s_t;\theta_t)$随机采样某一个动作$a_t$
-3. 计算该采样动作的价值$q_t \approx Q_\pi(s_t,a_t)$
+2. 根据policy network $\pi(\cdot|s_t;\theta_t)$ 随机采样某一个动作 $a_t$
+3. 计算该采样动作的价值 $q_t \approx Q_\pi(s_t,a_t)$
 4. 根据上一小节计算policy gradient 
 5. 更新policy network
 
