@@ -55,6 +55,8 @@ print(tokenizer.backend_tokenizer.normalizer.normalize_str("Héllò hôw are ü?
 ![BPE-wordpiece-unigram](https://raw.githubusercontent.com/marsggbo/PicBed/master/小书匠/2023_12_1_1701412605182.png)
 
 
+## 3.1 BPE 原理解释
+
 这一小节我们着重介绍一下最常见的算法之一：BPE (Byte-pair Encoding)。[huggingface官方tutorial](https://huggingface.co/learn/nlp-course/chapter6/5?fw=pt) 给出了非常详细的解释，这里做一个简单的介绍。
 
 BPE 其实是一个统计算法，不同意深度神经网络，只要给定一个数据集或者一篇文章，BPE 不管运行多少次都会得出同样的结果。下面我们看看 BPE 到底是在做什么。
@@ -81,6 +83,190 @@ BPE 根据上述单词表首先初始化生成基础词汇表（base vocabulary�
 ```
 
 我们继续重复上面的 遍历和合并 操作，每次词汇表都会新增一个 token。当词汇表内 token 数量达到预设值的时候就会停止 BPE 算法了，并返回最终的词汇表和语料库。
+
+## 3.2 BPE 代码实战 
+
+### 3.2.1. 初始化一个简单的文本数据集，如下
+
+```python
+corpus = [
+    "This is the Hugging Face Course.",
+    "This chapter is about tokenization.",
+    "This section shows several tokenizer algorithms.",
+    "Hopefully, you will be able to understand how they are trained and generate tokens.",
+]
+```
+
+### 3.2.2. pre-tokenization （初始化语料库和词汇表）
+
+- 语料库
+
+
+normalize 步骤就省略了。我们直接先构建一下语料库，以单词为单位对原始文本序列进行划分，并统计每个单词的频率。
+
+```python
+from transformers import AutoTokenizer
+from collections import defaultdict
+
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+word_freqs = defaultdict(int)
+
+for text in corpus:
+    words_with_offsets = tokenizer.backend_tokenizer.pre_tokenizer.pre_tokenize_str(text)
+    new_words = [word for word, offset in words_with_offsets]
+    for word in new_words:
+        word_freqs[word] += 1
+
+print(word_freqs)
+
+>>> defaultdict(int, {'This': 3, 'Ġis': 2, 'Ġthe': 1, 'ĠHugging': 1, 'ĠFace': 1, 'ĠCourse': 1, '.': 4, 'Ġchapter': 1,
+    'Ġabout': 1, 'Ġtokenization': 1, 'Ġsection': 1, 'Ġshows': 1, 'Ġseveral': 1, 'Ġtokenizer': 1, 'Ġalgorithms': 1,
+    'Hopefully': 1, ',': 1, 'Ġyou': 1, 'Ġwill': 1, 'Ġbe': 1, 'Ġable': 1, 'Ġto': 1, 'Ġunderstand': 1, 'Ġhow': 1,
+    'Ġthey': 1, 'Ġare': 1, 'Ġtrained': 1, 'Ġand': 1, 'Ġgenerate': 1, 'Ġtokens': 1})
+```
+
+
+- 词汇表
+
+```python
+alphabet = []
+
+for word in word_freqs.keys():
+    for letter in word:
+        if letter not in alphabet:
+            alphabet.append(letter)
+alphabet.sort()
+vocab = ["<|endoftext|>"] + alphabet.copy()
+
+print(vocab)
+
+>>> ['<|endoftext|>', ',', '.', 'C', 'F', 'H', 'T', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o', 'p', 'r', 's',
+  't', 'u', 'v', 'w', 'y', 'z', 'Ġ']
+```
+
+根据词汇表将语料库进行进一步的划分,即把每一个单词表示成由多个 token（或 sub-word）组成的 list：
+
+```python
+splits = {word: [c for c in word] for word in word_freqs.keys()}
+```
+
+
+ ### 3.2.3 BPE 合并字典和词汇表
+ 
+ 遍历搜索，找到出现频率最高的 byte-pair
+ 
+```python
+def compute_pair_freqs(splits):
+    pair_freqs = defaultdict(int)
+    for word, freq in word_freqs.items():
+        split = splits[word]
+        if len(split) == 1:
+            continue
+        for i in range(len(split) - 1):
+            pair = (split[i], split[i + 1])
+            pair_freqs[pair] += freq
+    return pair_freqs
+
+pair_freqs = compute_pair_freqs(splits)
+best_pair = ""
+max_freq = None
+
+for pair, freq in pair_freqs.items():
+    if max_freq is None or max_freq < freq:
+        best_pair = pair
+        max_freq = freq
+
+print(best_pair, max_freq)
+
+>>> ('Ġ', 't') 7
+```
+ 
+ 
+更新词汇表和初始化合并字典，该字典记录了整个合并的过程；
+ 
+ 
+```python
+vocab.append("Ġt")
+merges = {("Ġ", "t"): "Ġt"}
+```
+
+根据新增合并规则更新语料库
+```python
+def merge_pair(a, b, splits):
+    for word in word_freqs:
+        split = splits[word]
+        if len(split) == 1:
+            continue
+
+        i = 0
+        while i < len(split) - 1:
+            if split[i] == a and split[i + 1] == b:
+                split = split[:i] + [a + b] + split[i + 2 :]
+            else:
+                i += 1
+        splits[word] = split
+    return splits
+
+splits = merge_pair("Ġ", "t", splits)
+print(splits["Ġtrained"])
+
+>>> ['Ġt', 'r', 'a', 'i', 'n', 'e', 'd']
+```
+
+
+总结一下上述步骤，我们找到了出现频率最高的一组 byte-pair，由此更新了词汇表和语料库。接下来，我们重复上述过程，不断增加词汇表的大小，直到词汇表包含 50 个 token 为止：
+
+```python
+vocab_size = 50
+
+while len(vocab) < vocab_size:
+    pair_freqs = compute_pair_freqs(splits)
+    best_pair = ""
+    max_freq = None
+    for pair, freq in pair_freqs.items():
+        if max_freq is None or max_freq < freq:
+            best_pair = pair
+            max_freq = freq
+    splits = merge_pair(*best_pair, splits)
+    merges[best_pair] = best_pair[0] + best_pair[1]
+    vocab.append(best_pair[0] + best_pair[1])
+
+
+print(vocab)
+>>> ['<|endoftext|>', ',', '.', 'C', 'F', 'H', 'T', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'k', 'l', 'm', 'n', 'o',
+ 'p', 'r', 's', 't', 'u', 'v', 'w', 'y', 'z', 'Ġ', 'Ġt', 'is', 'er', 'Ġa', 'Ġto', 'en', 'Th', 'This', 'ou', 'se',
+ 'Ġtok', 'Ġtoken', 'nd', 'Ġis', 'Ġth', 'Ġthe', 'in', 'Ġab', 'Ġtokeni']
+
+print(merges)
+>>> {('Ġ', 't'): 'Ġt', ('i', 's'): 'is', ('e', 'r'): 'er', ('Ġ', 'a'): 'Ġa', ('Ġt', 'o'): 'Ġto', ('e', 'n'): 'en',
+ ('T', 'h'): 'Th', ('Th', 'is'): 'This', ('o', 'u'): 'ou', ('s', 'e'): 'se', ('Ġto', 'k'): 'Ġtok',
+ ('Ġtok', 'en'): 'Ġtoken', ('n', 'd'): 'nd', ('Ġ', 'is'): 'Ġis', ('Ġt', 'h'): 'Ġth', ('Ġth', 'e'): 'Ġthe',
+ ('i', 'n'): 'in', ('Ġa', 'b'): 'Ġab', ('Ġtoken', 'i'): 'Ġtokeni'}
+```
+
+
+至此，我们完成了对给定文本数据的 BPE 算法，得到了长度为 50 的词汇表和语料库。那么该如何利用生成的词汇表和语料库对新的文本数据做 tokenization 呢？代码如下：
+
+```python
+def tokenize(text):
+    pre_tokenize_result = tokenizer._tokenizer.pre_tokenizer.pre_tokenize_str(text)
+    pre_tokenized_text = [word for word, offset in pre_tokenize_result]
+    splits = [[l for l in word] for word in pre_tokenized_text]
+    for pair, merge in merges.items():
+        for idx, split in enumerate(splits):
+            i = 0
+            while i < len(split) - 1:
+                if split[i] == pair[0] and split[i + 1] == pair[1]:
+                    split = split[:i] + [merge] + split[i + 2 :]
+                else:
+                    i += 1
+            splits[idx] = split
+
+    return sum(splits, [])
+
+tokenize("This is not a token.")
+>>> ['This', 'Ġis', 'Ġ', 'n', 'o', 't', 'Ġa', 'Ġtoken', '.']
+```
 
 
 
