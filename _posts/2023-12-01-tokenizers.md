@@ -244,6 +244,7 @@ print(merges)
  ('i', 'n'): 'in', ('Ġa', 'b'): 'Ġab', ('Ġtoken', 'i'): 'Ġtokeni'}
 ```
 
+### 3.2.4 tokenize 文本数据
 
 至此，我们完成了对给定文本数据的 BPE 算法，得到了长度为 50 的词汇表和语料库。那么该如何利用生成的词汇表和语料库对新的文本数据做 tokenization 呢？代码如下：
 
@@ -267,6 +268,28 @@ def tokenize(text):
 tokenize("This is not a token.")
 >>> ['This', 'Ġis', 'Ġ', 'n', 'o', 't', 'Ġa', 'Ġtoken', '.']
 ```
+### 3.2.5.  tokenize 的逆（decode）过程
+
+借助前面生成的 merge 字典，我们可以实现 tokenize的逆过程，这通常是在处理模型预测结果的时候需要用到，代码如下：
+
+```python
+def detokenize(tokens, merges):
+    reconstructed_text = ''.join(tokens)
+    for pair, merge in merges.items():
+        reconstructed_text = reconstructed_text.replace(merge, pair[0] + pair[1])
+    return reconstructed_text.replace('Ġ', ' ')
+
+# 假设 merges 是你之前代码中使用的 merges 字典
+merges = {('u', 'g'): 'ug', ('u', 'n'): 'un', ('h', 'ug'): 'hug'}  # 举例的 merges 字典
+
+tokens = tokenize("This is not a token.")  # 假设 tokens 是之前 tokenize 函数的输出结果
+original_text = detokenize(tokens, merges)
+print(original_text)
+>>> This is not a token.
+```
+
+
+
 
 
 
@@ -275,7 +298,7 @@ tokenize("This is not a token.")
 <center>
 <span>微信公众号：AutoML机器学习</span><br>
 <img src="https://pic4.zhimg.com/80/v2-87083e55cd41dbef83cc840c142df48a_720w.jpeg" style="width:200px;height:200px">
-</center>
+</center><br>
 <b>MARSGGBO</b><b style="color:white;"><span style="font-size:25px;">♥</span>原创</b><br>
 <span>如有意合作或学术讨论欢迎私戳联系~<br>邮箱:marsggbo@foxmail.com</span>
 <b style="color:white;"><br>
