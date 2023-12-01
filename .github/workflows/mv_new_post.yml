@@ -1,0 +1,46 @@
+name: Move Markdown Files to _posts
+
+on:
+  push:
+    paths:
+      - '*.md' # 监听 Markdown 文件的变化
+
+jobs:
+  move-to-posts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Check if file is Markdown and not in exclude list
+        id: check-markdown
+        run: |
+          EXCLUDE_FILES=("README.md" "about.md" "index.md" "publications.md")
+          FILE="${{ github.event.inputs.files }}"
+          
+          is_markdown=true
+          for exclude in "${EXCLUDE_FILES[@]}"; do
+            if [[ "$FILE" == "$exclude" ]]; then
+              is_markdown=false
+              break
+            fi
+          done
+
+          if [[ "$is_markdown" == true ]]; then
+            echo "::set-output name=is_markdown::true"
+          else
+            echo "::set-output name=is_markdown::false"
+          fi
+        shell: bash
+        env:
+          FILE: ${{ github.event.inputs.files }}
+
+      - name: Move Markdown file to _posts
+        if: steps.check-markdown.outputs.is_markdown == 'true'
+        run: |
+          mkdir -p _posts
+          mv ${{ github.event.inputs.files }} _posts/
+        shell: bash
+        env:
+          FILE: ${{ github.event.inputs.files }}
