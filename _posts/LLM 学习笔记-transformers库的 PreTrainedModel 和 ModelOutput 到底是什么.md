@@ -4,7 +4,7 @@ category: /小书匠/日记/2023-12
 grammar_cjkRuby: true
 tags: LLM,大模型,huggingface,transformers,PretrainedModel,ModelOutput
 ---
-> 闲言碎语
+> **闲言碎语**
 > 
 > 我在刚开始接触 huggingface （后简称 hf） 的 transformers  库时候感觉很冗杂，比如就模型而言，有 PretrainedModel, AutoModel，还有各种 ModelForClassification, ModelForCausalLM, AutoModelForPreTraining, AutoModelForCausalLM等等；不仅如此，还设计了多到让人头皮发麻的各种 ModelOutput，比如BaseModelOutput, BaseModelOutputWithPast, CausalLMOutput等等。拥有选择困难症的我选择退出，所以之前一直没怎么用过这个大名鼎鼎的库。今天咬着牙还是决定看看源码，把这些东西搞清楚。
 
@@ -63,13 +63,13 @@ class CausalLMOutputWithPast(ModelOutput):
 
 ```python
 class MyModel(PretrainedModel):
-	def __init__(self):
-		self.model = ...
+    def __init__(self):
+        self.model = ...
 
-	def forward(self, inputs, labels):
-		output = self.model(**inputs)
+    def forward(self, inputs, labels):
+        output = self.model(**inputs)
         hidden_states = ...
-		loss = loss_fn(outputs, labels)
+        loss = loss_fn(outputs, labels)
         return CausalLMOutputWithPast(
             loss=loss,
             logits=logits,
@@ -110,11 +110,11 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
     _no_split_modules = None
     _skip_keys_device_placement = None
     _keep_in_fp32_modules = None
-	...
+    ...
 
     def __init__(self, config: PretrainedConfig, *inputs, **kwargs):
         super().__init__()
-		...
+        ...
 ```
 
 在这个基类中，我们可以看到一些重要的属性和方法：
@@ -160,59 +160,59 @@ class LlamaPreTrainedModel(PreTrainedModel):
 
 -  `LlamaModel`是 llama 模型的主体定义类，也就是我们最常见的普pytorch 定义模型的方法、默认的输出格式为`BaseModelOutputWithPast`；
 
-	```python
-	class LlamaModel(LlamaPreTrainedModel):
+```python
+class LlamaModel(LlamaPreTrainedModel):
 
-		def __init__(self, config: LlamaConfig):
-			super().__init__(config)
-			self.padding_idx = config.pad_token_id
-			self.vocab_size = config.vocab_size
+    def __init__(self, config: LlamaConfig):
+        super().__init__(config)
+        self.padding_idx = config.pad_token_id
+        self.vocab_size = config.vocab_size
 
-			self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-			self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
-			self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-			...
+        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
+        self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        ...
 
-		def forward(self, ...):
-			...
-			return BaseModelOutputWithPast(...)
-	```
+    def forward(self, ...):
+        ...
+        return BaseModelOutputWithPast(...)
+```
 
 - `LlamaForCausalLM` 适用于生成式语言模型的 llama 模型，可以看到 backbone 就是 `LlamaModel`，增加了`lm_head`作为分类器，输出长度为词汇表达大小，用来预测下一个单词。输出格式为`CausalLMOutputWithPast`；
-	```python
-	class LlamaForCausalLM(LlamaPreTrainedModel):
-		# 适用于生成式语言模型的 Llama 模型定义
+```python
+class LlamaForCausalLM(LlamaPreTrainedModel):
+    # 适用于生成式语言模型的 Llama 模型定义
 
-		def __init__(self, config):
-			super().__init__(config)
-			self.model = LlamaModel(config)
-			self.vocab_size = config.vocab_size
-			self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
-			...
+    def __init__(self, config):
+        super().__init__(config)
+        self.model = LlamaModel(config)
+        self.vocab_size = config.vocab_size
+        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        ...
 
-		def forward(self, ...):
-			outputs = self.model(...)
-			... # 后处理 outputs，以满足输出格式要求
-			return CausalLMOutputWithPast(...)
-	```
+    def forward(self, ...):
+        outputs = self.model(...)
+        ... # 后处理 outputs，以满足输出格式要求
+        return CausalLMOutputWithPast(...)
+```
 
 - `LlamaForSequenceClassification` 适用于序列分类任务的 llama 模型，同样把 `LlamaModel`作为 backbone， 不过增加了`score`作为分类器，输出长度为 label 的数量，用来预测类别。输出格式为`SequenceClassifierOutputWithPast`
-	```python
-	class LlamaForSequenceClassification(LlamaPreTrainedModel):
-		# 适用于序列分类任务的 Llama 模型定义
+```python
+class LlamaForSequenceClassification(LlamaPreTrainedModel):
+    # 适用于序列分类任务的 Llama 模型定义
 
-		def __init__(self, config):
-			super().__init__(config)
-			self.num_labels = config.num_labels
-			self.model = LlamaModel(config)
-			self.score = nn.Linear(config.hidden_size, self.num_labels, bias=False)
-			...
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+        self.model = LlamaModel(config)
+        self.score = nn.Linear(config.hidden_size, self.num_labels, bias=False)
+        ...
 
-		def forward(self, ...):
-			outputs = self.model(...)
-			... # 后处理 outputs，以满足输出格式要求
-			return SequenceClassifierOutputWithPast(...)
-	```
+    def forward(self, ...):
+        outputs = self.model(...)
+        ... # 后处理 outputs，以满足输出格式要求
+        return SequenceClassifierOutputWithPast(...)
+```
 
 
 
