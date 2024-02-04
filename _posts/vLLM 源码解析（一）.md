@@ -3,7 +3,6 @@ title: vLLM 源码解析（一）
 category: /小书匠/日记/2024-01
 grammar_cjkRuby: true
 tags: LLM,Serving,vLLM,大模型推理
-emoji: 🫡
 ---
 
 
@@ -122,6 +121,7 @@ class Sequence:
 
 具体而言，可以看到`__init__`函数有个参数是 `seqs: List[Sequence]`，它表示由一个或多个 Sequence 组成的列表，然后会通过`self.seqs_dict = {seq.seq_id: seq for seq in seqs}`转化成字典方便管理，这个字典的 key 是每个 Sequence 的唯一标识`seq_id`。
 
+
 ```python
 class SequenceGroup:
     def __init__(
@@ -139,6 +139,41 @@ class SequenceGroup:
         self.arrival_time = arrival_time
 		...
 ```
+
+下面是 vLLm 中 LLMEngine 使用 Sequence 和 SequenceGroup 的场景示例：
+
+```python
+class LLMEngine:
+    def add_request(
+        self,
+        request_id: str,
+        prompt: Optional[str],
+        sampling_params: SamplingParams,
+        prompt_token_ids: Optional[List[int]] = None,
+        arrival_time: Optional[float] = None,
+        lora_request: Optional[LoRARequest] = None,
+        prefix_pos: Optional[int] = None,
+    ) -> None:
+        prompt_token_ids = self.encode_request(
+            request_id=request_id,
+            prompt=prompt,
+            prompt_token_ids=prompt_token_ids,
+            lora_request=lora_request) # 将字符串序列转换成 id
+
+        # Create the sequences.
+        block_size = self.cache_config.block_size
+        seq_id = next(self.seq_counter)
+        seq = Sequence(seq_id, prompt, prompt_token_ids, block_size,
+                       lora_request)
+
+        # Create the sequence group.
+        seq_group = SequenceGroup(request_id, [seq], sampling_params,
+                                  arrival_time)
+
+        # Add the sequence group to the scheduler.
+        self.scheduler.add_seq_group(seq_group)
+```
+可以看到`SequenceGroup`的`seqs`参数在最初阶段其实只是单个序列 ，即`[seq]`。但是我们知道其实一个 prompt 可以有多个输出结果，所以`SequenceGroup`的目的是管理一个输入 prompt的多个生成序列信息。如果我们设置`SamplingParams.n=2`（第 4 节会介绍），那么在推理过程中，`SequenceGroup`会新增一个 Sequence，这个新增的 Sequence 的 seq_id 和原来的那个 Sequence 不一样，具体的代码细节会在下一篇文章中介绍。
 
 ## 3.5 SequenceGroupMetadata
 
@@ -221,10 +256,11 @@ class SequenceGroupOutput:
 
 
 # 4. SamplingParams
+![SamplingParams](https://raw.githubusercontent.com/marsggbo/PicBed/master/小书匠/2024_2_4_1707037767316.png)
 
 SamplingParams 包含以下参数：
-- `n`：要生成的序列的数量。
-- `best_of`：从多少个序列中选择最佳序列。
+- `n`：要生成的序列的数量，默认为 1。
+- `best_of`：从多少个序列中选择最佳序列，需要大于 n，默认等于 n。
 - `temperature`：用于控制生成结果的随机性，较低的温度会使生成结果更确定性，较高的温度会使生成结果更随机。
 - `top_p`：用于过滤掉生成词汇表中概率低于给定阈值的词汇，控制随机性。
 - `top_k`：选择前 k 个候选 token，控制多样性。
@@ -255,8 +291,98 @@ SamplingParams 包含以下参数：
 
 
 # 5. Output 模块
+![Output模块](https://raw.githubusercontent.com/marsggbo/PicBed/master/小书匠/2024_2_4_1707040962845.png)
+
+Output 主要用于表示语言模型（LLM）的生成结果，包含如下两个模块：
+- `CompletionOutput`
+- `RequestOutput`
+
+通过上面的介绍我们知道一个 request 可能包含多个序列，`CompletionOutput` 用来表示一个 request 中某个序列的完整输出的数据，其中下面的`index`就表示该序列在 request 中的索引位置
+```python
+class CompletionOutput:
+    def __init__(
+        self,
+        index: int, # 输出结果在请求中的索引
+        text: str, # 生成的文本
+        token_ids: List[int], # 生成的文本对应的 token ID 列表
+        cumulative_logprob: float,
+        logprobs: Optional[SampleLogprobs],
+        finish_reason: Optional[str] = None, # 序列完成的原因（SequenceStatus）
+        lora_request: Optional[LoRARequest] = None,
+    ) -> None:
+        self.index = index
+        self.text = text
+        self.token_ids = token_ids
+        self.finish_reason = finish_reason
+		...
+```
 
 
+`RequestOutput`则表示 request 所有序列的输出结果，有它的初始化函数可以看到它记录了对应的 `request_id`。
+
+```python
+class RequestOutput:
+    def __init__(
+        self,
+        request_id: str,
+        prompt: str,
+        prompt_token_ids: List[int],
+        prompt_logprobs: Optional[PromptLogprobs],
+        outputs: List[CompletionOutput],
+        finished: bool,
+        lora_request: Optional[LoRARequest] = None,
+    ) -> None:
+        self.request_id = request_id
+        self.prompt = prompt
+        self.prompt_token_ids = prompt_token_ids
+        self.outputs = outputs
+        self.finished = finished
+		...
+```
+
+
+我们看看RequestOutput的from_seq_group就能很好理解`CompletionOutput`和 `RequestOutput`是如何使用的了。为方便理解，代码有删减，但是不影响最终结果：
+
+```python
+class RequestOutput:
+    @classmethod
+    def from_seq_group(cls, seq_group: SequenceGroup) -> "RequestOutput":
+        # 1. Get the top-n sequences.
+        n = seq_group.sampling_params.n # 每个序列返回的生成序列数量
+        seqs = seq_group.get_seqs()
+		# 根据累积 logprob 值来选择出前 n 个生成序列
+		sorting_key = lambda seq: seq.get_cumulative_logprob()
+        sorted_seqs = sorted(seqs, key=sorting_key, reverse=True)
+        top_n_seqs = sorted_seqs[:n]
+
+        # 2. Create the outputs.
+        outputs: List[CompletionOutput] = []
+        for seq in top_n_seqs:
+            logprobs = seq.output_logprobs
+            finshed_reason = SequenceStatus.get_finished_reason(seq.status)
+            output = CompletionOutput(seqs.index(seq), seq.output_text,
+                                      seq.get_output_token_ids(),
+                                      seq.get_cumulative_logprob(), logprobs,
+                                      finshed_reason)
+            outputs.append(output)
+
+        # Every sequence in the sequence group should have the same prompt.
+        prompt = seq_group.prompt
+        prompt_token_ids = seq_group.prompt_token_ids
+        prompt_logprobs = seq_group.prompt_logprobs
+        finished = seq_group.is_finished()
+        return cls(seq_group.request_id,
+                   prompt,
+                   prompt_token_ids,
+                   prompt_logprobs,
+                   outputs,
+                   finished,
+                   lora_request=seq_group.lora_request)
+```
+
+`RequestOutput`是通过对传入的`seq_group: SequenceGroup`进行解析后得到的。解析过程主要有两个阶段：
+1. Get the top-n sequences：这一阶段就是对生成序列按照 cumulative_logprob 进行排序，最后选择出top-n 序列。
+ 2. Create the outputs：将所有top-n生成序列分别转换成 `CompletionOutput`列表，并作为`RequestOutput`的初始化参数。
 
 
 
